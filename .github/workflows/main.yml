@@ -1,0 +1,57 @@
+name: dockur-macos-vnc
+
+on:
+  workflow_dispatch:
+
+jobs:
+  macos-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Up Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Start dockur/macos Container
+        run: |
+          echo "Starting macOS container with KVM enabled..."
+          sudo docker run -d \
+            --name macos \
+            --device /dev/kvm \
+            -p 5900:5900 \
+            -p 8006:8006 \
+            -e VERSION=ventura \
+            dockur/macos
+          echo "Container started in background."
+
+      - name: Setup and Start Ngrok Tunnel
+        run: |
+          wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
+          unzip ngrok-v3-stable-linux-amd64.zip
+          chmod +x ngrok
+          
+          # Aapka direct token yahan daal diya gaya hai
+          ./ngrok authtoken 3BM6N01n6rva49E8A9dCmdkFQ9O_5K2ifGy74gi8TaAQ28wx8
+          
+          # Port 5900 VNC ke liye expose kar rahe hain
+          ./ngrok tcp 5900 --log=stdout > ngrok.log &
+          sleep 10
+          
+          echo "=========================================="
+          echo "VNC CONNECTION DETAILS"
+          echo "=========================================="
+          curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+          echo "Is URL ko RealVNC mein copy-paste karo (tcp:// hata dena)."
+          echo "Note: macOS install hone mein time lagega, thodi der baad VNC connect karna."
+          echo "=========================================="
+
+      - name: Keep Alive Loop
+        run: |
+          # GitHub Actions ko active rakhne ke liye sleep loop
+          sleep 21600 
